@@ -1,13 +1,11 @@
-# projects/views.py
-
 from typing import List
-from ninja import Router, ModelSchema
+from ninja import NinjaAPI, ModelSchema
 from django.shortcuts import get_object_or_404
-from rest_framework.permissions import IsAuthenticated
 from .models import Project
-from .forms import ProjectForm
+from ninja import Schema, Field
 
-router = Router()
+# Create the API instance
+api = NinjaAPI()
 
 # Define a Pydantic schema for your Project
 class ProjectSchema(ModelSchema):
@@ -16,40 +14,50 @@ class ProjectSchema(ModelSchema):
         model_fields = '__all__'  # Include all fields, adjust as necessary
 
 # Decorator to check permissions
-@router.get('/projects/', response=List[ProjectSchema])
+def is_authenticated(request):
+    if not request.user.is_authenticated:
+        return {"error": "Unauthorized"}, 401
+
+@api.get('/projects/', response=List[ProjectSchema])
 def list_projects(request):
-    request.user.is_authenticated  # Check if user is authenticated
+    auth_response = is_authenticated(request)
+    if auth_response:
+        return auth_response  # Return error if unauthorized
     queryset = Project.objects.all()
     return queryset
 
-@router.post('/projects/', response=ProjectSchema)
+@api.post('/projects/', response=ProjectSchema)
 def create_project(request, payload: ProjectSchema):
-    request.user.is_authenticated  # Check if user is authenticated
-    project = Project.objects.create(**payload.dict())
+    auth_response = is_authenticated(request)
+    if auth_response:
+        return auth_response  # Return error if unauthorized
+    project = Project.objects.create(**payload.dict(), created_by=request.user)  # Assuming `created_by` is a field
     return project
 
-@router.get('/projects/{project_id}', response=ProjectSchema)
+@api.get('/projects/{project_id}', response=ProjectSchema)
 def get_project(request, project_id: int):
-    request.user.is_authenticated  # Check if user is authenticated
+    auth_response = is_authenticated(request)
+    if auth_response:
+        return auth_response  # Return error if unauthorized
     project = get_object_or_404(Project, id=project_id)
     return project
 
-@router.put('/projects/{project_id}', response=ProjectSchema)
+@api.put('/projects/{project_id}', response=ProjectSchema)
 def update_project(request, project_id: int, payload: ProjectSchema):
-    request.user.is_authenticated  # Check if user is authenticated
+    auth_response = is_authenticated(request)
+    if auth_response:
+        return auth_response  # Return error if unauthorized
     project = get_object_or_404(Project, id=project_id)
     for attr, value in payload.dict().items():
         setattr(project, attr, value)
     project.save()
     return project
 
-@router.delete('/projects/{project_id}')
+@api.delete('/projects/{project_id}')
 def delete_project(request, project_id: int):
-    request.user.is_authenticated  # Check if user is authenticated
+    auth_response = is_authenticated(request)
+    if auth_response:
+        return auth_response  # Return error if unauthorized
     project = get_object_or_404(Project, id=project_id)
     project.delete()
     return {"success": True}
-
-# Add this line to your urls.py
-# from projects.views import router as projects_router
-# path("api/", projects_router.urls),
