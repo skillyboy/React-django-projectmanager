@@ -1,35 +1,16 @@
 from typing import List
 from ninja import NinjaAPI, ModelSchema, Field
 from django.shortcuts import get_object_or_404
+from ninja.errors import HttpError  # Correct import for HttpError
+
 from .models import Project
 from django.contrib.auth.models import User
 import logging
-from ninja.errors import HttpError
-from django.contrib.auth import authenticate, login
-from django.shortcuts import redirect
-from ninja import Schema
+
 logger = logging.getLogger(__name__)
 
 # Create the API instance
 api = NinjaAPI()
-
-
-
-
-
-class LoginSchema(Schema):
-    username: str
-    password: str
-
-@api.post('/login/')
-def login_user(request, payload: LoginSchema):
-    user = authenticate(request, username=payload.username, password=payload.password)
-    if user is not None:
-        login(request, user)
-        return {"success": True}
-    else:
-        raise HttpError(401, {"error": "Invalid credentials"})
-
 
 class ProjectSchema(ModelSchema):
     created_by: str = Field(..., exclude=True)  # Exclude from input
@@ -56,62 +37,47 @@ class ProjectSchema(ModelSchema):
 def is_authenticated(request):
     if not request.user.is_authenticated:
         logger.warning("Unauthorized access attempt.")
-        raise HttpError(401, {"error": "Unauthorized"})  # Raise an exception instead of returning a dict
+        return {"error": "Unauthorized"}, 401
 
 # Permission check decorator for admin users
 def is_admin(request):
     if not request.user.is_staff:
         logger.warning("Forbidden access attempt by non-admin user.")
-        raise HttpError(403, {"error": "Forbidden"})  # Raise an exception instead of returning a dict
-
-@api.get('/projects/', response=List[ProjectSchema])
-def list_projects(request):
-    is_authenticated(request)  # Check authentication
-
-    queryset = Project.objects.all() if request.user.is_staff else Project.objects.filter(assigned_to=request.user)
-    projects = [ProjectSchema.from_model(project) for project in queryset]
-
-    # Ensure the returned projects are correctly serialized
-    serialized_projects = [
-        {
-            "id": project.id,
-            "name": project.name,
-            "description": project.description,
-            "created_by": str(project.created_by),  # Convert to string if necessary
-        }
-        for project in projects
-    ]
-
-    return serialized_projects
+        return {"error": "Forbidden"}, 403
 
 @api.post('/projects/', response=ProjectSchema)
 def create_project(request, payload: ProjectSchema):
-    is_authenticated(request)  # Check authentication
+    # Validate status and priority here
+    valid_statuses = ['in_progress', 'done', 'abandoned', 'canceled']
+    valid_priorities = ['low', 'mid', 'high']
 
-    assigned_to_user = get_object_or_404(User, id=payload.assigned_to.id)
+    if payload.status not in valid_statuses:
+        raise HttpError(400, f"Invalid status: {payload.status}")
+    
+    if payload.priority not in valid_priorities:
+        raise HttpError(400, f"Invalid priority: {payload.priority}")
 
+    assigned_to_user = get_object_or_404(User, id=payload.assigned_to)
     project_data = payload.dict(exclude={"created_by", "assigned_to"})
     project = Project.objects.create(**project_data, created_by=request.user, assigned_to=assigned_to_user)
 
     logger.info(f"Project created: {project}")
-    return ProjectSchema.from_model(project)  # Return the created project as a schema
-
-@api.get('/projects/{project_id}/', response=ProjectSchema)
-def get_project(request, project_id: int):
-    is_authenticated(request)  # Check authentication
-
-    project = get_object_or_404(Project, id=project_id)
-
-    if not request.user.is_staff and project.assigned_to != request.user:
-        raise HttpError(403, {"error": "Forbidden"})  # Raise an exception for forbidden access
-
     return ProjectSchema.from_model(project)
 
 @api.put('/projects/{project_id}/', response=ProjectSchema)
 def update_project(request, project_id: int, payload: ProjectSchema):
     is_admin(request)  # Check admin permissions
-
     project = get_object_or_404(Project, id=project_id)
+
+    # Validate status and priority here
+    valid_statuses = ['in_progress', 'done', 'abandoned', 'canceled']
+    valid_priorities = ['low', 'mid', 'high']
+
+    if payload.status not in valid_statuses:
+        raise HttpError(400, f"Invalid status: {payload.status}")
+
+    if payload.priority not in valid_priorities:
+        raise HttpError(400, f"Invalid priority: {payload.priority}")
 
     for attr, value in payload.dict().items():
         if attr == "assigned_to":
@@ -122,13 +88,29 @@ def update_project(request, project_id: int, payload: ProjectSchema):
 
     project.save()
     logger.info(f"Project updated: {project}")
-    return ProjectSchema.from_model(project)  # Return the updated project
+    return ProjectSchema.from_model(project)
+
+@api.get('/projects/{project_id}/', response=ProjectSchema)
+def get_project(request, project_id: int):
+    auth_response = is_authenticated(request)
+    if auth_response:
+        return auth_response
+
+    project = get_object_or_404(Project, id=project_id)
+
+    if not request.user.is_staff and project.assigned_to != request.user:
+        return {"error": "Forbidden"}, 403
+
+    return ProjectSchema.from_model(project)
+
 
 @api.delete('/projects/{project_id}/')
 def delete_project(request, project_id: int):
-    is_admin(request)  # Check admin permissions
+    auth_response = is_admin(request)
+    if auth_response:
+        return auth_response
 
     project = get_object_or_404(Project, id=project_id)
     project.delete()
     logger.info(f"Project deleted: {project_id}")
-    return {"success": True}  # This response is valid
+    return {"success": True}
