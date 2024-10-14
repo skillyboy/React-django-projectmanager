@@ -20,6 +20,21 @@ class ProjectSchema(ModelSchema):
         model = Project
         model_fields = '__all__'
 
+    @classmethod
+    def from_model(cls, project: Project) -> 'ProjectSchema':
+        """Convert a Project instance to ProjectSchema, handling created_by correctly."""
+        return cls(
+            id=project.id,
+            name=project.name,
+            description=project.description,
+            status=project.status,
+            priority=project.priority,
+            date_created=project.date_created,
+            assigned_to=project.assigned_to.id,  # Use ID for assigned_to in response
+            created_by=str(project.created_by)   # Convert User to string (e.g., username)
+        )
+
+
 # Permission check decorator for authenticated users
 def is_authenticated(request):
     if not request.user.is_authenticated:
@@ -102,11 +117,17 @@ def delete_project(request, project_id: int):
     return {"success": True}
 
 # Retrieve all projects assigned to a user (authenticated users)
-@api.get('/user/projects/', response=List[ProjectSchema])
-def get_user_projects(request):
+@api.get('/projects/{project_id}/', response=ProjectSchema)
+def get_project(request, project_id: int):
     auth_response = is_authenticated(request)
     if auth_response:
         return auth_response
 
-    projects = request.user.projects.all()  # Fetch projects assigned to the user
-    return [ProjectSchema.from_model(project) for project in projects]
+    project = get_object_or_404(Project, id=project_id)
+
+    # Allow project access if user is admin or assigned to the project
+    if not request.user.is_staff and project.assigned_to != request.user:
+        return {"error": "Forbidden"}, 403
+
+    # Use the from_model method to convert the project instance to the schema
+    return ProjectSchema.from_model(project)
