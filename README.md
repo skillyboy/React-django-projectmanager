@@ -1,5 +1,3 @@
-
-http://localhost:3000/
     # Project Management App
     
     ## Overview
