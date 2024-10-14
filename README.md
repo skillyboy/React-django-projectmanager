@@ -1,6 +1,5 @@
-Here's the updated README file with a focus on the Django admin interface, specifically mentioning the URL for accessing the admin side. I've made adjustments to highlight that aspect clearly:
 
-    ```markdown
+http://localhost:3000/
     # Project Management App
     
     ## Overview
