@@ -45,9 +45,7 @@ INSTALLED_APPS = [
     'projects',
 ]
 
-CORS_ALLOWED_ORIGINS = [
-    "http://localhost:3000",  # Your React app URL
-]
+
 
 # Allow all origins (for development only)
 CORS_ALLOW_ALL_ORIGINS = True
