@@ -1,8 +1,8 @@
     # Project Management App
-    http://localhost:3000/admin
+    http://localhost:3000/
 
     http://localhost:8000/api/docs
-    
+
    `http://localhost:8000/admin/
 
 
