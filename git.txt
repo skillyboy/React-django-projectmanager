@@ -1,4 +1,4 @@
 git add .
-git commit -m "Your commit message here"
+git commit -m "Submission"
 git push origin main
 .

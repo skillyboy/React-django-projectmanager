@@ -1,5 +1,14 @@
     # Project Management App
-    
+    http://localhost:8000/api/docs
+   `http://localhost:8000/admin/
+
+
+
+
+
+
+
+
     ## Overview
     
     This is a Project Management application that provides both API and frontend implementations. The app allows users to manage projects with various attributes, ensuring an efficient workflow and organization.
