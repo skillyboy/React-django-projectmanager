@@ -1,5 +1,5 @@
-from django.db import models
 from django.contrib.auth.models import User
+from django.db import models
 
 class Project(models.Model):
     STATUS_CHOICES = [
@@ -8,6 +8,7 @@ class Project(models.Model):
         ('abandoned', 'Abandoned'),
         ('canceled', 'Canceled'),
     ]
+
     PRIORITY_CHOICES = [
         ('low', 'Low'),
         ('mid', 'Mid'),
@@ -16,10 +17,10 @@ class Project(models.Model):
 
     name = models.CharField(max_length=255)
     description = models.TextField()
-    assigned_to = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name='assigned_projects')
-    created_by = models.ForeignKey(User, on_delete=models.CASCADE, related_name='created_projects')
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES)
-    priority = models.CharField(max_length=10, choices=PRIORITY_CHOICES)
+    assigned_to = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
+    created_by = models.ForeignKey(User, related_name='projects_created', on_delete=models.CASCADE)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='in_progress')
+    priority = models.CharField(max_length=20, choices=PRIORITY_CHOICES, default='low')
     date_created = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
